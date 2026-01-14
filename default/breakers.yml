@@ -1,0 +1,23 @@
+CyberArk_Audit:
+  lib: custom
+  minRawLength: 256
+  rules:
+    - condition: "true"
+      type: json_array
+      timestampAnchorRegex: /WhenLogged/
+      timestamp:
+        type: auto
+        length: 150
+      timestampTimezone: UTC
+      timestampEarliest: -420weeks
+      timestampLatest: +1week
+      maxEventBytes: 512000
+      disabled: false
+      parserEnabled: false
+      shouldUseDataRaw: false
+      jsonExtractAll: false
+      eventBreakerRegex: /[\n\r]+(?!\s)/
+      name: audit_logs
+      jsonArrayField: Result.Results
+  tags: cyberark
+  description: Breaker for CyberArk SaaS audit logs

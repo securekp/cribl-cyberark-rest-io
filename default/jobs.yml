@@ -1,0 +1,106 @@
+cyberark_audit_logs:
+  type: collection
+  ttl: 4h
+  ignoreGroupJobsLimit: false
+  removeFields: []
+  resumeOnBoot: false
+  schedule:
+    cronSchedule: "*/5 * * * *"
+    maxConcurrentRuns: 1
+    skippable: true
+    run:
+      rescheduleDroppedTasks: true
+      maxTaskReschedule: 1
+      logLevel: info
+      jobTimeout: 60m
+      mode: run
+      timeRangeType: relative
+      timeWarning: {}
+      expression: "true"
+      minTaskSize: 1MB
+      maxTaskSize: 10MB
+      stateTracking:
+        stateUpdateExpression: WhenOccurred
+        stateMergeExpression: "(state > value) ? state : value"
+        enabled: true
+    enabled: true
+  streamtags: []
+  workerAffinity: false
+  collector:
+    conf:
+      discovery:
+        discoverType: none
+      collectMethod: post_with_body
+      pagination:
+        type: response_body
+        maxPages: 50
+        attribute:
+          - Result.IsAggregate
+      authentication: login
+      timeout: 0
+      useRoundRobinDns: false
+      disableTimeFilter: false
+      decodeUrl: false
+      rejectUnauthorized: true
+      captureHeaders: false
+      stopOnEmptyResults: true
+      safeHeaders: []
+      retryRules:
+        type: backoff
+        interval: 1000
+        limit: 5
+        multiplier: 2
+        maxIntervalMs: 20000
+        codes:
+          - 429
+          - 503
+        enableHeader: true
+        retryConnectTimeout: false
+        retryConnectReset: false
+        retryHeaderName: retry-after
+      __scheduling:
+        stateTracking:
+          stateFileId: cyberark_audit_state
+          jobAttribute: _last_collection_time
+          initialValue: "'2026-01-01T00:00:00Z'"
+          updateExpression: WhenOccurred
+          mergeExpression: "(state > value) ? state : value"
+      loginUrl: "'https://acf4417.id.cyberark.cloud/oauth2/token/cribl_audit_app'"
+      loginBody: "`grant_type=client_credentials&scope=cribl&client_id=${C.Secret('Cy\
+        berArk_API_Key',
+        'keypair').apiKey}&client_secret=${C.Secret('CyberArk_API_Key',
+        'keypair').secretKey}`"
+      getAuthTokenFromHeader: false
+      authHeaderKey: Authorization
+      authHeaderExpr: "`Bearer ${token.trim()}`"
+      tokenRespAttribute: access_token
+      collectUrl: "'https://acf4417.id.cyberark.cloud/Redrock/query'"
+      collectBody: |-
+        `{
+          "Script": "Select * FROM Event WHERE WhenOccurred > '${(typeof _last_collection_time !== 'undefined' && _last_collection_time) ? _last_collection_time : '2025-01-01T00:00:00Z'}' ORDER BY WhenOccurred ASC"
+        }`
+      collectRequestHeaders:
+        - name: Content-Type
+          value: "#42:PsY2P7SG/ukVnGcY9BYKZf665OXvXKf6TPq4WPAs8D0SRfz771te1tHjs9vPjiyA"
+        - name: X-IDAP-NATIVE-CLIENT
+          value: "#42:gQZy+oeFhr8N0KN0t1ahk81EuaQ81mLC5k62Iv0EJHQ="
+      username: "#42:Q9V+9Xpz0mhHEdxfLg57eE94X5qBXwN8rLiZf8rtTLA="
+      password: "#42:+y4TR5lR2hLg1d+S76xYcFbvzwhhpmD8G88eRlsGqdI="
+      authRequestHeaders:
+        - name: Content-Type
+          value: "#42:WW/y/RJHKy0VlGJnl1ZEhwxcVWg6Rx/v7fvEVM2pS5SUKVUm+40TyPSzxc24NAnlj8N\
+            tYJXLD/lNLyALJh/zzA=="
+    destructive: false
+    encoding: utf8
+    type: rest
+  input:
+    type: collection
+    staleChannelFlushMs: 10000
+    sendToRoutes: true
+    preprocess:
+      disabled: true
+    throttleRatePerSec: "0"
+    breakerRulesets:
+      - CyberArk_Audit
+  savedState: {}
+  notifications: []

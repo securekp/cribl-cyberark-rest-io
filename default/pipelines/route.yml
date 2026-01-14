@@ -1,0 +1,24 @@
+id: default
+groups: {}
+comments: []
+routes:
+  - id: 4jWdMW
+    name: cyberark_audit_logs
+    final: true
+    disabled: false
+    pipeline: devnull
+    description: ""
+    enableOutputExpression: false
+    filter: __inputId=='collection:cribl-cyberark-rest-io.cyberark_audit_logs'
+    clones: []
+    output: devnull
+  - id: default
+    name: default
+    final: true
+    disabled: false
+    pipeline: main
+    description: ""
+    enableOutputExpression: false
+    filter: "true"
+    clones: []
+    output: default

@@ -1,0 +1,14 @@
+output: default
+streamtags: []
+groups: {}
+asyncFuncTimeout: 1000
+functions:
+  - id: serde
+    filter: "true"
+    conf:
+      mode: extract
+      type: json
+      srcField: _raw
+      fieldFilterExpr: value!=null
+    description: Parse JSON and drop fields with null values
+description: ""
