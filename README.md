@@ -15,8 +15,8 @@ This pack requires a service account in CyberArk to be configured in order to pr
   - Create Scope with name cribl (this matters) and set Allowed REST APIs to .*
 
 After the configuration of CyberArk is complete, return to this pack and do the following: 
-- In the Worker Group where this pack will be deployed, create a Secret called CyberArk_API_Key with the credentials from the above configuration.
-- Navigate to the REST collector in this pack and update the collect and login URLs to indicate your tenant.
+- In the Worker Group where this pack will be deployed, create a Secret called CyberArk_API_Key with the credentials from the above configuration. Note: The username and password fields in the REST collector are not used, so there's just nonsense in there. The Secret is leveraged within the Collect POST body. 
+- Navigate to the REST collector in this pack and update the collect and login URLs to indicate your tenant ID. Note: Your tenant ID is NOT necessarily the friendly URL of your tenant. 
 
 ## Upgrades
 Upgrading certain Cribl Packs using the same Pack ID can have unintended consequences. See [Upgrading an Existing Pack](https://docs.cribl.io/stream/packs#upgrading) for details.

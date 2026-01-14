@@ -65,7 +65,7 @@ cyberark_audit_logs:
           initialValue: "'2026-01-01T00:00:00Z'"
           updateExpression: WhenOccurred
           mergeExpression: "(state > value) ? state : value"
-      loginUrl: "'https://acf4417.id.cyberark.cloud/oauth2/token/cribl_audit_app'"
+      loginUrl: "'https://TENANTID.id.cyberark.cloud/oauth2/token/cribl_audit_app'"
       loginBody: "`grant_type=client_credentials&scope=cribl&client_id=${C.Secret('Cy\
         berArk_API_Key',
         'keypair').apiKey}&client_secret=${C.Secret('CyberArk_API_Key',
@@ -74,7 +74,7 @@ cyberark_audit_logs:
       authHeaderKey: Authorization
       authHeaderExpr: "`Bearer ${token.trim()}`"
       tokenRespAttribute: access_token
-      collectUrl: "'https://acf4417.id.cyberark.cloud/Redrock/query'"
+      collectUrl: "'https://TENANTID.id.cyberark.cloud/Redrock/query'"
       collectBody: |-
         `{
           "Script": "Select * FROM Event WHERE WhenOccurred > '${(typeof _last_collection_time !== 'undefined' && _last_collection_time) ? _last_collection_time : '2025-01-01T00:00:00Z'}' ORDER BY WhenOccurred ASC"
