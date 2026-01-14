@@ -6,7 +6,7 @@ routes:
     name: cyberark_audit_logs
     final: true
     disabled: false
-    pipeline: devnull
+    pipeline: cyberark_audit_parsing
     description: ""
     enableOutputExpression: false
     filter: __inputId=='collection:cribl-cyberark-rest-io.cyberark_audit_logs'
