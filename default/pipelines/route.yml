@@ -3,6 +3,16 @@ groups: {}
 comments: []
 routes:
   - id: 4jWdMW
+    name: cyberark_identity_logs
+    final: true
+    disabled: false
+    pipeline: cyberark_identity_parsing
+    description: ""
+    enableOutputExpression: false
+    filter: __inputId=='collection:cribl-cyberark-rest-io.cyberark_identity_logs'
+    clones: []
+    output: devnull
+  - id: ajEhKh
     name: cyberark_audit_logs
     final: true
     disabled: false

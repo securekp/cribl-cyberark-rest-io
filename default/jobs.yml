@@ -1,4 +1,4 @@
-cyberark_audit_logs:
+cyberark_identity_logs:
   type: collection
   ttl: 4h
   ignoreGroupJobsLimit: false
@@ -32,10 +32,16 @@ cyberark_audit_logs:
         discoverType: none
       collectMethod: post_with_body
       pagination:
-        type: response_body
+        type: request_page
+        pageField: page
+        sizeField: page_size
+        size: 50
         maxPages: 50
+        zeroIndexed: false
         attribute:
           - Result.IsAggregate
+        totalRecordField: Result.Count
+        page: 0
       authentication: login
       timeout: 0
       useRoundRobinDns: false
@@ -65,31 +71,33 @@ cyberark_audit_logs:
           initialValue: "'2026-01-01T00:00:00Z'"
           updateExpression: WhenOccurred
           mergeExpression: "(state > value) ? state : value"
-      loginUrl: "'https://TENANTID.id.cyberark.cloud/oauth2/token/cribl_audit_app'"
-      loginBody: "`grant_type=client_credentials&scope=cribl&client_id=${C.Secret('Cy\
-        berArk_API_Key',
-        'keypair').apiKey}&client_secret=${C.Secret('CyberArk_API_Key',
+      loginUrl: C.Secret('cyberark_api_endpoint', 'text').value +
+        '/oauth2/token/cribl_identity_app'
+      loginBody: "`grant_type=client_credentials&scope=cribl&client_id=${C.Secret('cy\
+        berark_api_key',
+        'keypair').apiKey}&client_secret=${C.Secret('cyberark_api_key',
         'keypair').secretKey}`"
       getAuthTokenFromHeader: false
       authHeaderKey: Authorization
       authHeaderExpr: "`Bearer ${token.trim()}`"
       tokenRespAttribute: access_token
-      collectUrl: "'https://TENANTID.id.cyberark.cloud/Redrock/query'"
+      collectUrl: C.Secret('cyberark_api_endpoint', 'text').value + '/Redrock/query'
       collectBody: |-
         `{
-          "Script": "Select * FROM Event WHERE WhenOccurred > '${(typeof _last_collection_time !== 'undefined' && _last_collection_time) ? _last_collection_time : '2025-01-01T00:00:00Z'}' ORDER BY WhenOccurred ASC"
+          "Script": "Select * FROM Event WHERE WhenOccurred > '${(typeof _last_collection_time !== 'undefined' && _last_collection_time) ? _last_collection_time : '2025-01-01T00:00:00Z'}' ORDER BY WhenOccurred ASC",
+          "args": {"PageNumber": ${(typeof page!=='undefined' && page) ? Number.parseInt(page) : 0}, "Limit": 100}
         }`
       collectRequestHeaders:
         - name: Content-Type
-          value: "#42:PsY2P7SG/ukVnGcY9BYKZf665OXvXKf6TPq4WPAs8D0SRfz771te1tHjs9vPjiyA"
+          value: "#42:1VJM0BiHRm6YxfjEwGmQCRniD8UPwZieESRjeWNoR62AZ5d7C+ksaEg93XkA8ORs"
         - name: X-IDAP-NATIVE-CLIENT
-          value: "#42:gQZy+oeFhr8N0KN0t1ahk81EuaQ81mLC5k62Iv0EJHQ="
-      username: "#42:Q9V+9Xpz0mhHEdxfLg57eE94X5qBXwN8rLiZf8rtTLA="
-      password: "#42:+y4TR5lR2hLg1d+S76xYcFbvzwhhpmD8G88eRlsGqdI="
+          value: "#42:IXSj9L0gmk5WwHj1lkMGmEPIPIG3+f4b99xtNc8+uwk="
+      username: "#42:6wmQ0z7tjapRaFsFRitpRNKJqNKh+Jbg35YbGwiEBNE="
+      password: "#42:y6M0XBOv+pKmP3sQBvqHbyxgedLIQ79MghpkByN7oRs="
       authRequestHeaders:
         - name: Content-Type
-          value: "#42:WW/y/RJHKy0VlGJnl1ZEhwxcVWg6Rx/v7fvEVM2pS5SUKVUm+40TyPSzxc24NAnlj8N\
-            tYJXLD/lNLyALJh/zzA=="
+          value: "#42:WAZ/TtcawmG/24BI+aXjT3idkz++wXTO7QYzNBq7EZVnHUQW0sKgDjD9TN7AWeSN3x8\
+            IrKuR5m5XhIVootujaQ=="
     destructive: false
     encoding: utf8
     type: rest
@@ -104,3 +112,133 @@ cyberark_audit_logs:
       - CyberArk_Audit
   savedState: {}
   notifications: []
+cyberark_audit_logs:
+  type: collection
+  ttl: 4h
+  ignoreGroupJobsLimit: false
+  removeFields: []
+  resumeOnBoot: false
+  schedule:
+    cronSchedule: "*/5 * * * *"
+    maxConcurrentRuns: 1
+    skippable: true
+    run:
+      rescheduleDroppedTasks: true
+      maxTaskReschedule: 1
+      logLevel: info
+      jobTimeout: 60m
+      mode: run
+      timeRangeType: relative
+      timeWarning: {}
+      expression: "true"
+      minTaskSize: 1MB
+      maxTaskSize: 10MB
+      stateTracking:
+        stateUpdateExpression: "__timestampExtracted !== false && {latestTime:
+          (state.latestTime || 0) > _time ? state.latestTime : _time}"
+        stateMergeExpression: "(prevState.latestTime || 0) > newState.latestTime ?
+          prevState : newState"
+        enabled: true
+      earliest: -5m
+    enabled: true
+  streamtags: []
+  workerAffinity: false
+  collector:
+    conf:
+      discovery:
+        discoverType: http
+        discoverMethod: post_with_body
+        pagination:
+          type: none
+        enableStrictDiscoverParsing: false
+        enableDiscoverCode: false
+        itemList: []
+        discoverUrl: C.Secret('cyberark_siem_endpoint', 'text').value +
+          '/api/audits/stream/createQuery'
+        discoverRequestHeaders:
+          - name: x-api-key
+            value: "#42:wsA/OGJeGdFj41Gqi6hqEQ+f2mwmzd0SO2jnLQky4qDMglmlvOe8kr4ESfTk066ekrM\
+              NiCCBbCODOccYg6BEnM5t3OuiihaeQ21Bd6TAsvs="
+        discoverBody: '{"query": {"pageSize": 500,"selectedFields":
+          ["tenant_id","custom_data","arrival_timestamp","checksum","application_code","audit_code","timestamp","user_id","session_id","source","action_type","audit_type","component","target","command","message","username","action","uuid","service_name","cloud_roles","cloud_workspaces","cloud_workspaces_and_roles","cloud_assets","cloud_identities","vaulted_accounts","cloud_provider","account_name","target_platform","safe","target_account","identity_type","access_method","account_id","correlation_id"],"filterModel":
+          {"date": {"dateFrom": C.Time.strftime(((state.latestTime || earliest)
+          +.001).toPrecision(13), "%Y-%m-%d %H:%M:%S:%L"),"dateTo":
+          C.Time.strftime(Date.now()/1000-60, "%Y-%m-%d %H:%M:%S:%L")}}}}'
+      collectMethod: post_with_body
+      pagination:
+        type: none
+        maxPages: 50
+        pageField: page
+        sizeField: size
+        size: 50
+        zeroIndexed: false
+        offsetField: offset
+        limitField: limit
+        limit: 50
+        nextRelationAttribute: next
+      authentication: oauth
+      timeout: 0
+      useRoundRobinDns: false
+      disableTimeFilter: false
+      decodeUrl: false
+      rejectUnauthorized: true
+      captureHeaders: false
+      stopOnEmptyResults: true
+      safeHeaders: []
+      retryRules:
+        type: backoff
+        interval: 1000
+        limit: 5
+        multiplier: 2
+        maxIntervalMs: 20000
+        codes:
+          - 429
+          - 503
+        enableHeader: true
+        retryConnectTimeout: false
+        retryConnectReset: false
+        retryHeaderName: retry-after
+      __scheduling:
+        stateTracking: {}
+      loginUrl: C.Secret('cyberark_api_endpoint', 'text').value +
+        '/oauth2/token/cribl_audit_app'
+      authHeaderKey: Authorization
+      authHeaderExpr: "`Bearer ${token}`"
+      clientSecretParamName: grant_type
+      clientSecretParamValue: "#42:+4HiuMfOJ668XRc5Okkvb2E12gYSiLxXD3qOTRlZt8kqyuHsKO5cyxIO3zVOS2TX"
+      authRequestParams:
+        - name: scope
+          value: '"isp.audit.events:read"'
+      authRequestHeaders:
+        - name: Authorization
+          value: "#42:NnMy0G+Ly7/QBW+A+/QKJMv/jfybVcL45qZzyf4gGzcP1o5vUbN1pL+gNHdrCqyQ1Sd\
+            UNW9XD11s1zMCLYOuZhr78SDEaXZy8/V7MQFQKl4Bs5oagQPOCIP28WAgoI9F8vcJvT\
+            JGzZzpJ8iUQugAORH+/5rh0tcxodSW7ZdCugtjFQQXa8EF8aAHp33X+iSIHmD3I+mth\
+            NzcHOYIqLg16w=="
+      tokenRespAttribute: access_token
+      collectUrl: C.Secret('cyberark_siem_endpoint', 'text').value +
+        '/api/audits/stream/results'
+      collectRequestHeaders:
+        - name: x-api-key
+          value: "#42:USppJpf+fcFZhvjZHqLDpQzklHsgYqK/mm7wqHqapz00Q+/AM+VEi1I1DXBOSSEvFUf\
+            0nPbg+p8YY5Qqt05fmsNWRLi9MUSG0ieUK3A4IM8="
+      collectBody: 'JSON.parse(`{ "cursorRef" : "${cursorRef}"}`)'
+    destructive: false
+    encoding: utf8
+    type: rest
+  input:
+    type: collection
+    staleChannelFlushMs: 10000
+    sendToRoutes: true
+    preprocess:
+      disabled: true
+    throttleRatePerSec: "0"
+    breakerRulesets:
+      - CyberArk_Audit
+  savedState:
+    restCollectorState:
+      data:
+        latestTime: 1769808402.645
+  notifications: []
+  description: This collector collects from the Audit app of CyberArk using the
+    SIEM Integration API

@@ -2,7 +2,7 @@ CyberArk_Audit:
   lib: custom
   minRawLength: 256
   rules:
-    - condition: "true"
+    - condition: source.endsWith('Redrock/query')
       type: json_array
       timestampAnchorRegex: /WhenLogged/
       timestamp:
@@ -15,9 +15,34 @@ CyberArk_Audit:
       disabled: false
       parserEnabled: false
       shouldUseDataRaw: false
+      jsonExtractAll: true
+      eventBreakerRegex: /[\n\r]+(?!\s)/
+      name: identity_logs
+      jsonArrayField: Result.Results
+    - condition: source.endsWith('stream/results')
+      type: json_array
+      timestampAnchorRegex: /timestamp/
+      timestamp:
+        type: auto
+        length: 150
+      timestampTimezone: UTC
+      timestampEarliest: -420weeks
+      timestampLatest: +1week
+      maxEventBytes: 512000
+      disabled: false
+      parserEnabled: false
+      shouldUseDataRaw: false
       jsonExtractAll: false
+      delimiter: ","
+      quoteChar: '"'
+      escapeChar: '"'
+      delimiterRegex: /\t/
+      fieldsLineRegex: /^#[Ff]ields[:]?\s+(.*)/
+      headerLineRegex: /^#/
+      nullFieldVal: "-"
+      cleanFields: true
       eventBreakerRegex: /[\n\r]+(?!\s)/
       name: audit_logs
-      jsonArrayField: Result.Results
+      jsonArrayField: data
   tags: cyberark
   description: Breaker for CyberArk SaaS audit logs
