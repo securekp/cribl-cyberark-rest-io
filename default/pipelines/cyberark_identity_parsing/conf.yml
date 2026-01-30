@@ -13,11 +13,12 @@ functions:
     description: Parse JSON and drop fields with null values
   - id: serialize
     filter: "true"
+    disabled: false
     conf:
       type: json
       dstField: _raw
       fields:
-        - Row*
-        - Entities*
-        - _time
+        - "!_*"
+        - "!cribl*"
+        - "*"
 description: ""

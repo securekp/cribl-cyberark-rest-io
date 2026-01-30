@@ -17,7 +17,7 @@ functions:
       type: json
       dstField: _raw
       fields:
-        - Row*
-        - Entities*
-        - _time
+        - "!_*"
+        - "!cribl*"
+        - "*"
 description: ""
