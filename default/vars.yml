@@ -1,1 +1,10 @@
-{}
+CyberArk_Hosts:
+  type: object
+  lib: custom
+  value: "{\r
+
+    \    \"audit_host\": \"cribl-dtgt-us-east-1.audit.cyberark.cloud\",\r
+
+    \    \"identity_host\": \"acf4417.id.cyberark.cloud\"\r
+
+    }"

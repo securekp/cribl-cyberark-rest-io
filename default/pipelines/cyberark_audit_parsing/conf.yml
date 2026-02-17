@@ -9,10 +9,11 @@ functions:
       mode: extract
       type: json
       srcField: _raw
-      fieldFilterExpr: value!=null
-    description: Parse JSON and drop fields with null values
+      fieldFilterExpr: value!=null && value!=""
+    description: Parse JSON and drop fields with null or blank values
   - id: serialize
     filter: "true"
+    disabled: false
     conf:
       type: json
       dstField: _raw
@@ -20,4 +21,5 @@ functions:
         - "!_*"
         - "!cribl*"
         - "*"
+    description: Rebuild the _raw value without the null & blank fields that were removed
 description: ""

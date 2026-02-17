@@ -9,9 +9,9 @@ routes:
     pipeline: cyberark_identity_parsing
     description: ""
     enableOutputExpression: false
-    filter: __inputId=='collection:cribl-cyberark-rest-io.cyberark_identity_logs'
+    filter: __inputId.endsWith('cyberark_identity_logs')
     clones: []
-    output: devnull
+    output: default
   - id: ajEhKh
     name: cyberark_audit_logs
     final: true
@@ -19,9 +19,9 @@ routes:
     pipeline: cyberark_audit_parsing
     description: ""
     enableOutputExpression: false
-    filter: __inputId=='collection:cribl-cyberark-rest-io.cyberark_audit_logs'
+    filter: __inputId.endsWith('cyberark_audit_logs')
     clones: []
-    output: devnull
+    output: default
   - id: default
     name: default
     final: true
