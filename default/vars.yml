@@ -1,10 +1,35 @@
 CyberArk_Hosts:
   type: object
   lib: custom
+  description: "Idira host endpoints. These deliberately retain the cyberark.cloud
+    domain - do NOT change them to an idira domain. audit_host is the API base URL
+    shown on your SIEM integration in Setup > Integrations > Export to SIEM.
+    identity_host is your Idira Identity tenant ID and is used for the OAuth2 token
+    endpoint (certification check 3.5) - it is required even though this Pack no
+    longer collects Identity logs."
   value: "{\r
-
+\r
     \    \"audit_host\": \"cribl-dtgt-us-east-1.audit.cyberark.cloud\",\r
-
+\r
     \    \"identity_host\": \"acf4417.id.cyberark.cloud\"\r
-
+\r
+    }"
+Idira_Telemetry:
+  type: object
+  lib: custom
+  description: "Values for the mandatory x-cybr-telemetry header (certification
+    checks 7.1-7.7). it=SIEM is fixed by the Idira IntegrationType registry and is
+    set in the header expression, not here. integration_name and vendor_name MUST be
+    agreed with your Idira Technical Alliances contact before certification
+    submission (check 7.7) - the values below are defaults, not approved values.
+    integration_version must match the released Pack version (check 7.5). Never use
+    a value containing & or = in either name - no escaping rule is defined."
+  value: "{\r
+\r
+    \    \"integration_name\": \"Cribl Stream Security Analytics\",\r
+\r
+    \    \"integration_version\": \"2.0.0\",\r
+\r
+    \    \"vendor_name\": \"Cribl, Inc.\"\r
+\r
     }"

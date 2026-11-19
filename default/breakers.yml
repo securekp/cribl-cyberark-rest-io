@@ -2,23 +2,6 @@ CyberArk_Audit:
   lib: custom
   minRawLength: 256
   rules:
-    - condition: source.endsWith('Redrock/query')
-      type: json_array
-      timestampAnchorRegex: /WhenLogged/
-      timestamp:
-        type: auto
-        length: 150
-      timestampTimezone: UTC
-      timestampEarliest: -420weeks
-      timestampLatest: +1week
-      maxEventBytes: 512000
-      disabled: false
-      parserEnabled: false
-      shouldUseDataRaw: false
-      jsonExtractAll: true
-      eventBreakerRegex: /[\n\r]+(?!\s)/
-      name: identity_logs
-      jsonArrayField: Result.Results
     - condition: source.endsWith('stream/results')
       type: json_array
       timestampAnchorRegex: /timestamp/
@@ -44,8 +27,9 @@ CyberArk_Audit:
       eventBreakerRegex: /[\n\r]+(?!\s)/
       name: audit_logs
       jsonArrayField: data
-  tags: cyberark
-  description: Breaker for CyberArk SaaS audit logs
+  tags: cyberark,idira
+  description: Breaker for Idira Audit Service events (legacy; retained for
+    compatibility — cyberark_audit_logs uses CyberArk_API_Ruleset)
 CyberArk_API_Ruleset:
   lib: custom
   minRawLength: 256
@@ -75,37 +59,5 @@ CyberArk_API_Ruleset:
       eventBreakerRegex: /[\n\r]+(?!\s)/
       name: audit_logs
       jsonArrayField: data
-    - condition: source.endsWith('Redrock/query') && /^{"success":true/.test(_raw)
-      type: json_array
-      timestampAnchorRegex: /"WhenOccurred"/
-      timestamp:
-        type: auto
-        length: 150
-      timestampTimezone: UTC
-      timestampEarliest: -420weeks
-      timestampLatest: +1week
-      maxEventBytes: 5120000
-      disabled: false
-      parserEnabled: false
-      shouldUseDataRaw: false
-      jsonExtractAll: false
-      eventBreakerRegex: /[\n\r]+(?!\s)/
-      name: identity_logs
-      jsonArrayField: Result.Results
-    - condition: source.endsWith('Redrock/query') && /^{"success":false/.test(_raw)
-      type: regex
-      timestampAnchorRegex: /^/
-      timestamp:
-        type: auto
-        length: 150
-      timestampTimezone: UTC
-      timestampEarliest: -420weeks
-      timestampLatest: +1week
-      maxEventBytes: 512000
-      disabled: false
-      parserEnabled: false
-      shouldUseDataRaw: false
-      eventBreakerRegex: /[\n\r]+(?!\s)/
-      name: identity_error
-  tags: cyberark
-  description: Breakers for CyberArk SaaS Audit & Identity logs
+  tags: cyberark,idira
+  description: Breakers for Idira Audit Service (SIEM integration) events

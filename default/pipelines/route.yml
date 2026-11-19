@@ -2,18 +2,8 @@ id: default
 groups: {}
 comments: []
 routes:
-  - id: 4jWdMW
-    name: cyberark_identity_logs
-    final: true
-    disabled: false
-    pipeline: cyberark_identity_parsing
-    description: ""
-    enableOutputExpression: false
-    filter: __inputId.endsWith('cyberark_identity_logs')
-    clones: []
-    output: default
   - id: ajEhKh
-    name: cyberark_audit_logs
+    name: Idira audit logs
     final: true
     disabled: false
     pipeline: cyberark_audit_parsing
