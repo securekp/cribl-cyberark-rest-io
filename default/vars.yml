@@ -7,13 +7,50 @@ CyberArk_Hosts:
     identity_host is your Idira Identity tenant ID and is used for the OAuth2 token
     endpoint (certification check 3.5) - it is required even though this Pack no
     longer collects Identity logs."
-  value: "{\r
-\r
-    \    \"audit_host\": \"cribl-dtgt-us-east-1.audit.cyberark.cloud\",\r
-\r
-    \    \"identity_host\": \"acf4417.id.cyberark.cloud\"\r
-\r
-    }"
+  value: |-
+    {
+      "audit_host": "cribl-dtgt-us-east-1.audit.cyberark.cloud",
+      "identity_host": "acf4417.id.cyberark.cloud"
+    }
+Idira_Secrets:
+  type: object
+  lib: custom
+  description: "Names of the Cribl Secrets this Pack reads - not the secret values
+    themselves. Create the Secrets under Worker Group Settings > Security > Secrets,
+    then put their NAMES here. Defaults match the names used since 1.0.0, so an
+    existing deployment needs no change. api_key is an 'API Key and Secret Key'
+    Secret holding the OAuth2 client ID and client secret; siem_api_key is a 'Text'
+    Secret holding the SIEM API key from Export to SIEM."
+  value: |-
+    {
+      "api_key": "cyberark_api_key",
+      "siem_api_key": "cyberark_audit_x_api_key"
+    }
+Idira_OAuth:
+  type: object
+  lib: custom
+  description: "OAuth2 Server web app settings from Identity Administration. app_id
+    is the Application ID you entered on the app's Settings tab and is the last path
+    segment of the token URL. scope is the scope you added on the Scope tab - leave
+    it as isp.audit.events:read unless Idira documents otherwise."
+  value: |-
+    {
+      "app_id": "cribl_audit_app",
+      "scope": "isp.audit.events:read"
+    }
+Idira_Collection:
+  type: object
+  lib: custom
+  description: "Collection tuning. page_size is the Audit Service results page size
+    (API maximum is 500). application_code is an optional server-side filter
+    (certification check 4.4) - leave the array empty to collect every service, or
+    add codes such as [\"DPA\",\"PAM\"] to reduce volume. See the Idira SIEM
+    integration API docs for the application-code list."
+  value: |-
+    {
+      "page_size": 500,
+      "application_code": []
+    }
 Idira_Telemetry:
   type: object
   lib: custom
@@ -24,12 +61,9 @@ Idira_Telemetry:
     submission (check 7.7) - the values below are defaults, not approved values.
     integration_version must match the released Pack version (check 7.5). Never use
     a value containing & or = in either name - no escaping rule is defined."
-  value: "{\r
-\r
-    \    \"integration_name\": \"Cribl Stream Security Analytics\",\r
-\r
-    \    \"integration_version\": \"2.0.0\",\r
-\r
-    \    \"vendor_name\": \"Cribl, Inc.\"\r
-\r
-    }"
+  value: |-
+    {
+      "integration_name": "Cribl Stream Security Analytics",
+      "integration_version": "2.0.0",
+      "vendor_name": "Cribl, Inc."
+    }

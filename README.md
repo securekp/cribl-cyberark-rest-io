@@ -148,9 +148,15 @@ Secret names are **unchanged from 1.x** so existing deployments do not have to r
 
 If you name your Secrets differently, update the Secret references in the REST collector to match.
 
-### Set your Idira hosts
+### Set your Pack Variables
 
-**Knowledge → Variables → `CyberArk_Hosts`**
+**Knowledge → Variables**
+
+**Everything you need to configure lives here.** All five Variables ship pre-made with working
+defaults or example syntax, and the collector reads them — so you set values in one place and never
+hand-edit a JS expression inside the collector.
+
+#### `CyberArk_Hosts` — required
 
 | Key | Value |
 |:--|:--|
@@ -160,13 +166,41 @@ If you name your Secrets differently, update the Secret references in the REST c
 > `identity_host` is **still required** even though this Pack no longer collects Identity logs — the
 > OAuth2 bearer token must be retrieved from the Idira Identity (`.id.`) endpoint (check 3.5).
 
-### Set your telemetry values
+#### `Idira_Secrets` — change only if you renamed your Secrets
 
-**Knowledge → Variables → `Idira_Telemetry`**
+Holds the **names** of your Cribl Secrets, never the values. Defaults match the names used since
+1.0.0, so an existing deployment needs no change here.
+
+| Key | Default | What it points at |
+|:--|:--|:--|
+| `api_key` | `cyberark_api_key` | The *API Key and Secret Key* Secret holding the OAuth2 client ID and secret |
+| `siem_api_key` | `cyberark_audit_x_api_key` | The *Text* Secret holding the SIEM API key |
+
+If you named your Secrets differently, change them **here** — not in the collector.
+
+#### `Idira_OAuth` — required
+
+| Key | Default | Value |
+|:--|:--|:--|
+| `app_id` | `cribl_audit_app` | The **Application ID** from your OAuth2 Server web app's Settings tab. Must match exactly, or the token request 404s |
+| `scope` | `isp.audit.events:read` | The scope you added on the Scope tab. Leave as-is unless Idira documents otherwise |
+
+#### `Idira_Collection` — optional tuning
+
+| Key | Default | Value |
+|:--|:--|:--|
+| `page_size` | `500` | Results page size. **500 is the API maximum** |
+| `application_code` | `[]` | Optional server-side service filter (check 4.4). Empty array collects every service. Add codes — e.g. `["DPA"]` — to cut volume before it leaves Idira |
+
+The `application_code` filter is wired conditionally: an empty array (or a missing key) sends the
+date filter alone, exactly as 1.x did. Populating it adds an `applicationCode` include filter to the
+`createQuery` body.
+
+#### `Idira_Telemetry` — required before certification
 
 Every certified integration must send the `x-cybr-telemetry` header on every Idira API request
-(checks 7.1–7.7). This Pack builds it automatically from this Variable and attaches it to the token,
-discover, and collect calls — you only set the values.
+(checks 7.1–7.7). The Pack builds it from this Variable and attaches it to the token, discover and
+collect calls — you only set the values.
 
 | Key | Value |
 |:--|:--|
@@ -200,19 +234,132 @@ replacements; those are a no-op for the values above but are required, because a
 The job ID is retained as `cyberark_audit_logs` for backward compatibility — your existing route
 filters and downstream Search queries keyed on `__inputId` or `source` keep working.
 
-- **Discover**
-  - Review the **Discover POST body** and adjust `pageSize` or `selectedFields` as desired. Adding an
-    `applicationCode` filter here reduces volume server-side (check 4.4).
-  - Set the **x-api-key** header value to: `C.Secret("cyberark_audit_x_api_key", "text").value`
-- **Collect**
-  - Set the **x-api-key** header value to: `C.Secret("cyberark_audit_x_api_key", "text").value`
-- **Authentication**
-  - Set the **Client Secret value** to the text: `client_credentials`
-  - Set the **Authorization** authentication header value to:
-    `"Basic " + C.Encode.base64(C.Secret("cyberark_api_key", "keypair").apiKey + ":" + C.Secret("cyberark_api_key", "keypair").secretKey)`
+**Most of the collector configures itself from the Pack Variables.** These fields survive Pack
+export and need no attention:
+
+| Field | Resolves to |
+|:--|:--|
+| Token URL | `` `https://${...identity_host}/oauth2/token/${...app_id}` `` |
+| **Token request body** — `grant_type`, `scope`, `client_id`, `client_secret` | from `Idira_OAuth` and `Idira_Secrets` |
+| Discover `pageSize` and `applicationCode` filter | from `Idira_Collection` |
+| Collect / Discover URLs | from `CyberArk_Hosts.audit_host` |
+
+**The OAuth client credentials need no post-import entry.** The collector uses `authentication:
+login`, which puts them in `loginBody` — a field Cribl's exporter preserves. See
+*Why the token request uses `loginBody`* below.
+
+**Five fields do not survive export and must be re-entered after import — see the next section.**
 
 Leave **Capture headers** set to `false`. Enabling it writes the bearer token and the SIEM API key
 into event payloads, which fails check 3.8.
+
+---
+
+## Why the token request uses `loginBody`
+
+Cribl offers two ways to do OAuth2 `client_credentials` on a REST collector:
+
+| Mode | Credentials live in | Survives Pack export? |
+|:--|:--|:--|
+| `authentication: oauth` | `authRequestHeaders` → `Authorization: Basic …` | **No** — scrubbed to `changeme` |
+| `authentication: login` | `loginBody` → `client_id` / `client_secret` params | **Yes** |
+
+This Pack uses **`login`**, so your customers never paste a credential expression after import.
+
+Both are OAuth 2.0 `client_credentials` (check 3.1) and both send client ID and secret — RFC 6749
+§2.3.1 permits either HTTP Basic or request-body parameters. The resolved request matches the one
+Idira documents, on the same `.id.` endpoint (check 3.5):
+
+```
+POST https://<tenant-id>.id.cyberark.cloud/oauth2/token/<app-id>
+grant_type=client_credentials&scope=isp.audit.events:read&client_id=…&client_secret=…
+```
+
+The `username` and `password` fields are **unused** — they exist only to satisfy the collector form's
+required-field validation, and they stay `changeme`. The real credentials come from the
+`Idira_Secrets.api_key` Secret via `loginBody`.
+
+> **If the token request returns `401` or `invalid_client`,** your Idira OAuth2 app requires HTTP
+> Basic client authentication rather than body parameters. Roll back by setting **Authentication** to
+> `OAuth` and restoring these four fields:
+>
+> - Client Secret param name: `grant_type`, value: `client_credentials`
+> - Auth request **param** `scope`: `C.vars['Idira_OAuth'].scope`
+> - Auth request **header** `Authorization`:
+>   `"Basic " + C.Encode.base64(C.Secret(C.vars['Idira_Secrets'].api_key, 'keypair').apiKey + ":" + C.Secret(C.vars['Idira_Secrets'].api_key, 'keypair').secretKey)`
+>
+> That restores 1.x behaviour, at the cost of two extra post-import pastes.
+
+---
+
+## ⚠️ After you import the Pack — 5 fields, 2 values
+
+**Cribl's Pack exporter replaces request-header values and client-secret fields with `changeme`.**
+This is deliberate — it stops credentials leaking into a distributed Pack — and it is not something
+this Pack can configure around. `safeHeaders` does **not** exempt a header from it.
+
+The exporter scrubs exactly these, and nothing else:
+
+- `discoverRequestHeaders[].value`
+- `collectRequestHeaders[].value`
+- `authRequestHeaders[].value`
+- `username`, `password`, `clientSecretParamValue`
+
+URLs, request **bodies**, and request **params** are preserved, which is why everything in the table
+above survives.
+
+Five fields are affected, but only **two distinct strings** — both `x-api-key` headers take the same
+value, and all three `x-cybr-telemetry` headers take the same value.
+
+`username` and `password` are also scrubbed. **Leave them as `changeme`** — they are unused.
+
+### Value 1 — the SIEM API key header
+
+Paste into the `x-api-key` header on **Discover** and on **Collect**:
+
+```
+C.Secret(C.vars['Idira_Secrets'].siem_api_key, 'text').value
+```
+
+### Value 2 — and the one people miss: `x-cybr-telemetry`
+
+`x-cybr-telemetry` is a header, so **it is scrubbed too — in all three places.** It is also seven
+Required certification checks (7.1–7.7), and a scrubbed value fails them silently: the collector
+still runs and still collects events.
+
+Paste this identical string into the `x-cybr-telemetry` header on **Discover**, on **Collect**, and
+on **Authentication**:
+
+```
+C.Encode.base64(`in=${C.vars['Idira_Telemetry'].integration_name}&it=SIEM&iv=${C.vars['Idira_Telemetry'].integration_version}&vn=${C.vars['Idira_Telemetry'].vendor_name}`).replace(/\+/g,'-').replace(/\//g,'_')
+```
+
+It reads from the `Idira_Telemetry` Variable, so once pasted you change the name, version and vendor
+in Knowledge → Variables and never touch the header again.
+
+**Verify it before certification.** Decode the header from a captured request and confirm it says
+what you meant — with the shipped defaults it is:
+
+```
+plaintext : in=Cribl Stream Security Analytics&it=SIEM&iv=2.0.0&vn=Cribl, Inc.
+encoded   : aW49Q3JpYmwgU3RyZWFtIFNlY3VyaXR5IEFuYWx5dGljcyZpdD1TSUVNJml2PTIuMC4wJnZuPUNyaWJsLCBJbmMu
+```
+
+### Checklist
+
+| # | Where | Field | Paste |
+|:--|:--|:--|:--|
+| 1 | Discover | `x-api-key` | Value 1 |
+| 2 | Discover | `x-cybr-telemetry` | Value 2 |
+| 3 | Collect | `x-api-key` | Value 1 |
+| 4 | Collect | `x-cybr-telemetry` | Value 2 |
+| 5 | Authentication | `x-cybr-telemetry` | Value 2 |
+| — | Authentication | `username`, `password` | leave as `changeme` — unused |
+
+> **Note for maintainers.** The Git repository keeps the real expressions in these fields rather than
+> `changeme`, so a Pack installed directly from source works without this step. Only the **exported**
+> `.crbl` artifact carries `changeme`. If you re-export and commit, expect these five header values
+> to flip back to `changeme` in the diff — that is the exporter, not a regression.
 
 **Time filters** are pre-configured to work with either the *Earliest/Latest* run-time values or full
 State Tracking, so no change is normally needed. State Tracking is what makes a transient failure
@@ -345,10 +492,26 @@ Upgrading certain Cribl Packs using the same Pack ID can have unintended consequ
   `paging.cursor.cursorRef` with `maxPages: 0`. 1.x collected only the first 500-event page per run
   and silently discarded the remainder (check 4.6). See **Pagination** above for the one-run
   verification step.
+- **Three new pre-made Pack Variables** — `Idira_Secrets` (Cribl Secret *names*), `Idira_OAuth`
+  (`app_id`, `scope`) and `Idira_Collection` (`page_size`, optional `application_code` filter) —
+  joining `CyberArk_Hosts` and `Idira_Telemetry`. The collector's credential, token-URL, scope and
+  page-size fields now read from them, so configuration is set in Variables rather than by pasting
+  JS into collector fields that previously shipped as `changeme`.
 - Field mapping reference, including the snake_case/camelCase asymmetry and the five requested fields
   the API never returns (checks 5.3, 9.4).
 - Scope-of-collection statement (check 2.4), API limits, 7-day retention note (check 4.9), and the
   two-SIEM-integrations-per-tenant disclosure (check 9.3).
+- *After you import the Pack* section — Cribl's exporter scrubs request-header values to `changeme`,
+  so five fields need re-entry on every install. Telemetry is called out separately because a
+  scrubbed value fails seven Required checks while the collector keeps working.
+
+**Changed**
+- **Token request now uses `authentication: login` rather than `oauth`.** The OAuth2 client ID and
+  secret moved from the `Authorization` auth header into `loginBody`, because Cribl's Pack exporter
+  scrubs header values and preserves bodies. Same `client_credentials` grant, same `.id.` token
+  endpoint, same scope — only the client-authentication style changes (RFC 6749 §2.3.1 permits
+  either). Post-import field entry drops from 7 fields to 5, and from 4 distinct values to 2.
+  Rollback instructions are in **Why the token request uses `loginBody`**.
 
 **Fixed**
 - **Documentation named the wrong role right.** 1.x instructed `Report Management`, which grants no

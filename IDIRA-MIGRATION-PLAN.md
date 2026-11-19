@@ -28,7 +28,54 @@ Shipped in the working tree as **2.0.0**. Not committed.
 | ✅ | README: dedup argument on `uuid`; null-stripping clarified as values-only | 5.1, 5.4 |
 | ✅ | `package.json` → 2.0.0, `displayName` "Idira REST IO", `idira`/`siem` streamtags added, `cyberark` kept | 9.5 |
 | ✅ | All frozen identifiers verified unchanged (§4.1) | — |
-| ✅ | **Cursor pagination** — `pagination.type: response_body`, `attribute: [paging.cursor.cursorRef]`, `maxPages: 0`; dead legacy keys removed. Needs a one-run verification (below) | **4.6** |
+| ✅ | **Pre-made Pack Variables** — added `Idira_Secrets`, `Idira_OAuth`, `Idira_Collection` (now 5 total). Collector credential / token-URL / scope / page-size fields read from them; the 1.x `changeme` placeholders are gone. All 5 Variable JSON blobs parse and all 9 collector JS expressions evaluate against stubs | 6.5, 4.4 |
+| ✅ | **Cursor pagination** — `pagination.type: response_body`, `attribute: [paging.cursor.cursorRef]`, `maxPages: 0`. Needs a one-run verification (below) | **4.6** |
+
+### Note on Pack export scrubbing
+
+**Cribl's Pack exporter replaces request-header values and client-secret fields with `changeme`.**
+Verified empirically against the exported 1.0.0 artifact (`c476ab6:default/jobs.yml`):
+
+| Scrubbed → `changeme` | Preserved verbatim |
+|:--|:--|
+| `discoverRequestHeaders[].value` | `loginUrl`, `collectUrl`, `discoverUrl` |
+| `collectRequestHeaders[].value` | `discoverBody`, `collectBody` |
+| `authRequestHeaders[].value` | **`loginBody`** — survived containing `C.Secret(...)` |
+| `username`, `password`, `clientSecretParamValue` | `authRequestParams[].value` |
+
+`safeHeaders` does **not** exempt a header: 1.0.0 listed `X-IDAP-NATIVE-CLIENT` in `safeHeaders` and
+its header value was still scrubbed.
+
+**Consequence for this Pack.** Of the six fields wired to Variables, three survive export (`loginUrl`
+app id, `authRequestParams` scope, `discoverBody` page size + application filter) and three do not
+(both `x-api-key` headers, the `Authorization` auth header, plus `clientSecretParamValue`). The three
+`x-cybr-telemetry` headers are also scrubbed — **that is 7 Required checks (7.1–7.7) reverting on
+every export, and it fails silently because the collector still collects events.** The README's
+*After you import the Pack* section is the mitigation: five exact strings to paste, telemetry called
+out separately.
+
+**DONE 2026-11-19 — OAuth credentials moved into `loginBody`.** `loginBody` is preserved on export
+*and* tolerates `C.Secret(...)`: the 1.0.0 identity collector proved this, carrying
+`client_id=${C.Secret('cyberark_api_key','keypair').apiKey}` through export intact. The audit
+collector is now `authentication: login` instead of `oauth`, so the client ID and secret live in the
+preserved `loginBody` rather than a scrubbed `Authorization` header.
+
+Post-import burden: **7 fields / 4 values → 5 fields / 2 values.** The credential pastes are gone;
+what remains is the `x-api-key` header (×2) and `x-cybr-telemetry` (×3). `username` and `password`
+are scrubbed but unused — they exist only for the collector form's required-field validation.
+
+Both modes are OAuth 2.0 `client_credentials` (check 3.1) against the same `.id.` endpoint
+(check 3.5); RFC 6749 §2.3.1 permits client credentials via HTTP Basic *or* request-body parameters.
+The resolved body was verified to match the dev guide's documented request character for character,
+including the unencoded colon in `scope=isp.audit.events:read`.
+
+**Risk and rollback.** If the Idira OAuth2 app requires HTTP Basic client authentication rather than
+body parameters, the token request returns `401` / `invalid_client` — a loud, immediate failure, not
+a silent one. The README's *Why the token request uses `loginBody`* section carries the exact
+four-field rollback to `authentication: oauth`. **This is the one change in 2.0.0 that has not been
+run against a live tenant.**
+
+Telemetry cannot be rescued this way; a header is a header.
 
 ### Note on the pagination schema
 
@@ -39,15 +86,24 @@ Two pagination schemas exist in a current Stream UI bundle and they are easy to 
 | `paginationMethod` | `paginationAttribute`, `paginationTokenNames`, `maxPages`, `lastPageExpr` | The newer pull **Sources** (OpenAI, Wiz, …) |
 | `type` | `attribute`, `maxPages`, `lastPageExpr` | The **REST collector** — what this Pack uses |
 
-The REST collector's `response_body` branch takes `attribute` under the `type` discriminator. The
-`nextRelationAttribute: next` key that 1.x carried under `type: none` belongs to the
-`response_header_link` / `rfc5988` branch and was dead config — it is not the cursor field and
-following it would have produced a wrong configuration.
+The REST collector's `response_body` branch takes `attribute` under the `type` discriminator.
+
+**`nextRelationAttribute: next` is not the cursor field.** It belongs to the
+`response_header_link` / `rfc5988` branch, which parses an RFC 5988 `Link` header that the Idira
+Audit Service does not send. It is the only next-page-looking key in the block, so it is the obvious
+thing to reach for and it is the wrong thing to reach for.
+
+**The inactive-branch keys are retained deliberately** — `pageField`, `sizeField`, `size`,
+`zeroIndexed`, `offsetField`, `limitField`, `limit` and `nextRelationAttribute` stay pre-staged with
+example values. Cribl ignores keys outside the active branch, the Pack has always shipped this way,
+and they serve as in-UI documentation of the available pagination modes: a customer switching mode
+finds the fields populated rather than blank. Do not "clean them up".
 
 ### Still outstanding
 
 | Blocked on | Item | Checks |
 |:--|:--|:--|
+| **Live tenant — highest priority** | **Confirm the new `authentication: login` token request works.** The Idira OAuth2 app may require HTTP Basic client auth rather than body parameters; failure is a loud `401` / `invalid_client`. Rollback to `oauth` is in the README. This is the only 2.0.0 change not yet run against a live tenant | 3.1, 3.5 |
 | **One run against >500 events** | Confirm the pagination template variable binds. The collect body references `${cursorRef}`; if the engine exposes the full attribute path on your Stream version, the body needs adjusting. Verification steps are in the README's **Pagination** section. Fails safe — a wrong binding collects one page per run, which is the 1.x behaviour | **4.6** |
 | **No asset available** | `default/pack.yml` `logo` still holds the CyberArk base64 JPEG. Needs the Idira / Palo Alto Networks mark | 9.5 |
 | **Idira Technical Alliances** | `integration_name` and `vendor_name` in `Idira_Telemetry` are defaults, not agreed values | **7.7** |

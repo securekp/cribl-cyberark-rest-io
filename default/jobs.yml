@@ -42,16 +42,23 @@ cyberark_audit_logs:
           /createQuery`"
         discoverRequestHeaders:
           - name: x-api-key
-            value: changeme
+            value: |-
+              C.Secret(C.vars['Idira_Secrets'].siem_api_key, 'text').value
           - name: x-cybr-telemetry
             value: |-
               C.Encode.base64(`in=${C.vars['Idira_Telemetry'].integration_name}&it=SIEM&iv=${C.vars['Idira_Telemetry'].integration_version}&vn=${C.vars['Idira_Telemetry'].vendor_name}`).replace(/\+/g,'-').replace(/\//g,'_')
-        discoverBody: '{"query": {"pageSize": 500,"selectedFields":
-          ["tenant_id","custom_data","arrival_timestamp","checksum","application_code","audit_code","timestamp","user_id","session_id","source","action_type","audit_type","component","target","command","message","username","action","uuid","service_name","cloud_roles","cloud_workspaces","cloud_workspaces_and_roles","cloud_assets","cloud_identities","vaulted_accounts","cloud_provider","account_name","target_platform","safe","target_account","identity_type","access_method","account_id","correlation_id"],"filterModel":
-          {"date": {"dateFrom": C.Time.strftime((earliest ||
-          (state.latestTime+.001).toPrecision(13)), "%Y-%m-%d
-          %H:%M:%S.%LZ"),"dateTo": C.Time.strftime((latest ||
-          Date.now()/1000-1), "%Y-%m-%d %H:%M:%S.%LZ")}}}}'
+        discoverBody: |-
+          {"query": {
+            "pageSize": C.vars['Idira_Collection'].page_size,
+            "selectedFields": ["tenant_id","custom_data","arrival_timestamp","checksum","application_code","audit_code","timestamp","user_id","session_id","source","action_type","audit_type","component","target","command","message","username","action","uuid","service_name","cloud_roles","cloud_workspaces","cloud_workspaces_and_roles","cloud_assets","cloud_identities","vaulted_accounts","cloud_provider","account_name","target_platform","safe","target_account","identity_type","access_method","account_id","correlation_id"],
+            "filterModel": {
+              "date": {
+                "dateFrom": C.Time.strftime((earliest || (state.latestTime+.001).toPrecision(13)), "%Y-%m-%d %H:%M:%S.%LZ"),
+                "dateTo": C.Time.strftime((latest || Date.now()/1000-1), "%Y-%m-%d %H:%M:%S.%LZ")
+              },
+              ...((C.vars['Idira_Collection'].application_code || []).length ? {"applicationCode": [{"op": "include", "params": C.vars['Idira_Collection'].application_code}]} : {})
+            }
+          }}
       collectMethod: post_with_body
       pagination:
         type: response_body
@@ -59,7 +66,15 @@ cyberark_audit_logs:
           - paging.cursor.cursorRef
         maxPages: 0
         lastPageExpr: ""
-      authentication: oauth
+        pageField: page
+        sizeField: size
+        size: 50
+        zeroIndexed: false
+        offsetField: offset
+        limitField: limit
+        limit: 50
+        nextRelationAttribute: next
+      authentication: login
       timeout: 0
       useRoundRobinDns: false
       disableTimeFilter: false
@@ -83,27 +98,26 @@ cyberark_audit_logs:
         retryHeaderName: retry-after
       __scheduling:
         stateTracking: {}
-      loginUrl: "`https://${C.vars['CyberArk_Hosts'].identity_host}/oauth2/token/crib\
-        l_audit_app`"
+      loginUrl: |-
+        `https://${C.vars['CyberArk_Hosts'].identity_host}/oauth2/token/${C.vars['Idira_OAuth'].app_id}`
+      loginBody: |-
+        `grant_type=client_credentials&scope=${C.vars['Idira_OAuth'].scope}&client_id=${C.Secret(C.vars['Idira_Secrets'].api_key, 'keypair').apiKey}&client_secret=${C.Secret(C.vars['Idira_Secrets'].api_key, 'keypair').secretKey}`
+      getAuthTokenFromHeader: false
       authHeaderKey: Authorization
       authHeaderExpr: "`Bearer ${token}`"
-      clientSecretParamName: grant_type
-      clientSecretParamValue: changeme
-      authRequestParams:
-        - name: scope
-          value: '"isp.audit.events:read"'
       authRequestHeaders:
-        - name: Authorization
-          value: changeme
         - name: x-cybr-telemetry
           value: |-
             C.Encode.base64(`in=${C.vars['Idira_Telemetry'].integration_name}&it=SIEM&iv=${C.vars['Idira_Telemetry'].integration_version}&vn=${C.vars['Idira_Telemetry'].vendor_name}`).replace(/\+/g,'-').replace(/\//g,'_')
+      username: changeme
+      password: changeme
       tokenRespAttribute: access_token
       collectUrl: "`https://${C.vars['CyberArk_Hosts'].audit_host}/api/audits/stream/\
         results`"
       collectRequestHeaders:
         - name: x-api-key
-          value: changeme
+          value: |-
+            C.Secret(C.vars['Idira_Secrets'].siem_api_key, 'text').value
         - name: x-cybr-telemetry
           value: |-
             C.Encode.base64(`in=${C.vars['Idira_Telemetry'].integration_name}&it=SIEM&iv=${C.vars['Idira_Telemetry'].integration_version}&vn=${C.vars['Idira_Telemetry'].vendor_name}`).replace(/\+/g,'-').replace(/\//g,'_')
